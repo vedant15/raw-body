@@ -196,6 +196,16 @@ function readStream (stream, encoding, length, limit, callback) {
   // mark sync section complete
   sync = false
 
+  function getRawBodyAsString () {
+    let stringBody = '';
+
+    if (buffer && buffer.length > 0) {
+      stringBody = Buffer.concat(buffer);
+    }
+
+    return stringBody;
+  }
+
   function done () {
     var args = new Array(arguments.length)
 
@@ -233,7 +243,8 @@ function readStream (stream, encoding, length, limit, callback) {
       expected: length,
       length: length,
       received: received,
-      type: 'request.aborted'
+      type: 'request.aborted',
+      rawBody : getRawBodyAsString()
     }))
   }
 
@@ -264,7 +275,8 @@ function readStream (stream, encoding, length, limit, callback) {
         expected: length,
         length: length,
         received: received,
-        type: 'request.size.invalid'
+        type: 'request.size.invalid',
+        rawBody : getRawBodyAsString()
       }))
     } else {
       var string = decoder
