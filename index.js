@@ -186,6 +186,16 @@ function readStream (stream, encoding, length, limit, callback) {
     ? ''
     : []
 
+  var eventsMap = {
+    aborted : 0,
+    close : 0,
+    data : 0,
+    end : 0,
+    error : 0
+  };
+
+  var eventsSequence = [];
+
   // attach listeners
   stream.on('aborted', onAborted)
   stream.on('close', cleanup)
@@ -236,6 +246,9 @@ function readStream (stream, encoding, length, limit, callback) {
   }
 
   function onAborted () {
+    eventsMap.aborted++;
+    eventsSequence[eventsSequence.length] = 'aborted';
+
     if (complete) return
 
     done(createError(400, 'request aborted', {
@@ -244,11 +257,15 @@ function readStream (stream, encoding, length, limit, callback) {
       length: length,
       received: received,
       type: 'request.aborted',
-      rawBody : getRawBodyAsString()
+      rawBody : getRawBodyAsString(),
+      eventsMap : eventsMap,
+      eventsSequence : eventsSequence
     }))
   }
 
   function onData (chunk) {
+    eventsMap.data++;
+    eventsSequence[eventsSequence.length] = 'data';
     if (complete) return
 
     received += chunk.length
@@ -267,6 +284,14 @@ function readStream (stream, encoding, length, limit, callback) {
   }
 
   function onEnd (err) {
+    if (err) {
+      eventsSequence[eventsSequence.length] = 'error';
+      eventsMap.error++;
+    } else {
+      eventsSequence[eventsSequence.length] = 'end';
+      eventsMap.end++;
+    }
+
     if (complete) return
     if (err) return done(err)
 
@@ -276,7 +301,9 @@ function readStream (stream, encoding, length, limit, callback) {
         length: length,
         received: received,
         type: 'request.size.invalid',
-        rawBody : getRawBodyAsString()
+        rawBody : getRawBodyAsString(),
+        eventsMap : eventsMap,
+        eventsSequence : eventsSequence
       }))
     } else {
       var string = decoder
@@ -288,7 +315,8 @@ function readStream (stream, encoding, length, limit, callback) {
 
   function cleanup () {
     buffer = null
-
+    eventsMap.close++;
+    eventsSequence[eventsSequence.length] = 'close';
     stream.removeListener('aborted', onAborted)
     stream.removeListener('data', onData)
     stream.removeListener('end', onEnd)
